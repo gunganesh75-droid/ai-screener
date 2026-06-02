@@ -6,6 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { apiLimiter } from './middleware/rateLimiter.js';
+import { storage } from './config/firebase.js';
 
 // Routes
 import authRoutes from './routes/authRoutes.js';
@@ -67,7 +68,7 @@ app.use(['/uploads', '/api/uploads'], (req, res, next) => {
 }, express.static(path.join(__dirname, 'uploads')));
 
 // Explicit GET handler for uploads to protect against platform proxy oddities
-app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], (req, res) => {
+app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
   try {
     const fileName = req.params.file
     if (!fileName) return res.status(400).send('Bad Request')
@@ -79,49 +80,67 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], (req, res) => {
       return res.status(400).send('Invalid file path')
     }
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send('File not found')
-    }
+    const streamLocalFile = () => {
+      const stat = fs.statSync(filePath)
+      const fileSize = stat.size
+      const range = req.headers.range
 
-    const stat = fs.statSync(filePath)
-    const fileSize = stat.size
-    const range = req.headers.range
+      if (range) {
+        const parts = range.replace(/bytes=/, '').split('-')
+        const start = parseInt(parts[0], 10)
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
+        if (start >= fileSize || end >= fileSize) {
+          res.status(416).setHeader('Content-Range', `bytes */${fileSize}`)
+          return res.end()
+        }
 
-    // If Range header present, stream partial content (required by some PDF viewers)
-    if (range) {
-      const parts = range.replace(/bytes=/, '').split('-')
-      const start = parseInt(parts[0], 10)
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1
-      if (start >= fileSize || end >= fileSize) {
-        res.status(416).setHeader('Content-Range', `bytes */${fileSize}`)
-        return res.end()
+        const chunkSize = (end - start) + 1
+        res.status(206)
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`)
+        res.setHeader('Accept-Ranges', 'bytes')
+        res.setHeader('Content-Length', chunkSize)
+        res.setHeader('Content-Type', 'application/pdf')
+        const stream = fs.createReadStream(filePath, { start, end })
+        stream.on('open', () => stream.pipe(res))
+        stream.on('error', (streamErr) => {
+          console.error('File stream error:', streamErr)
+          if (!res.headersSent) res.status(500).end('Server error')
+        })
+        return
       }
 
-      const chunkSize = (end - start) + 1
-      res.status(206)
-      res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`)
-      res.setHeader('Accept-Ranges', 'bytes')
-      res.setHeader('Content-Length', chunkSize)
       res.setHeader('Content-Type', 'application/pdf')
-      const stream = fs.createReadStream(filePath, { start, end })
-      stream.on('open', () => stream.pipe(res))
-      stream.on('error', (streamErr) => {
+      res.setHeader('Content-Length', fileSize)
+      res.setHeader('Accept-Ranges', 'bytes')
+      const fileStream = fs.createReadStream(filePath)
+      fileStream.on('open', () => fileStream.pipe(res))
+      fileStream.on('error', (streamErr) => {
         console.error('File stream error:', streamErr)
         if (!res.headersSent) res.status(500).end('Server error')
       })
-      return
     }
 
-    // No range — send whole file
-    res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Length', fileSize)
-    res.setHeader('Accept-Ranges', 'bytes')
-    const fileStream = fs.createReadStream(filePath)
-    fileStream.on('open', () => fileStream.pipe(res))
-    fileStream.on('error', (streamErr) => {
-      console.error('File stream error:', streamErr)
-      if (!res.headersSent) res.status(500).end('Server error')
-    })
+    if (fs.existsSync(filePath)) {
+      return streamLocalFile()
+    }
+
+    if (storage) {
+      const remoteFilePath = `resumes/${fileName}`
+      const remoteFile = storage.file(remoteFilePath)
+      const [exists] = await remoteFile.exists()
+      if (exists) {
+        res.setHeader('Content-Type', 'application/pdf')
+        res.setHeader('Accept-Ranges', 'bytes')
+        const remoteStream = remoteFile.createReadStream()
+        remoteStream.on('error', (streamErr) => {
+          console.error('Remote storage stream error:', streamErr)
+          if (!res.headersSent) res.status(500).end('Server error')
+        })
+        return remoteStream.pipe(res)
+      }
+    }
+
+    return res.status(404).send('File not found')
   } catch (err) {
     console.error('Uploads GET handler error:', err)
     return res.status(500).send('Server error')

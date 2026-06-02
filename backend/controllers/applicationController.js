@@ -1,4 +1,4 @@
-import { db } from '../config/firebase.js';
+import { db, storage } from '../config/firebase.js';
 import fs from 'fs';
 import { extractTextFromPDF, analyzeResume } from '../services/aiService.js';
 
@@ -60,6 +60,22 @@ export const applyForJob = async (req, res) => {
     );
 
     const resumeUrl = `/uploads/${resumeFile.filename}`;
+
+    if (storage) {
+      try {
+        const remotePath = `resumes/${resumeFile.filename}`;
+        await storage.upload(resumeFile.path, {
+          destination: remotePath,
+          metadata: {
+            contentType: 'application/pdf',
+            cacheControl: 'public, max-age=31536000',
+          },
+        });
+        console.log(`✅ Uploaded resume to Firebase Storage: ${remotePath}`);
+      } catch (uploadError) {
+        console.warn('⚠️ Failed to upload resume to Firebase Storage:', uploadError.message);
+      }
+    }
 
     // 5. Calculate Status based on filtering logic rules:
     // Score >= 70 -> Shortlisted, 50-69 -> Review, < 50 -> Rejected
@@ -376,6 +392,22 @@ export const screenResumeDirectly = async (req, res) => {
     );
 
     const resumeUrl = `/uploads/${resumeFile.filename}`;
+
+    if (storage) {
+      try {
+        const remotePath = `resumes/${resumeFile.filename}`;
+        await storage.upload(resumeFile.path, {
+          destination: remotePath,
+          metadata: {
+            contentType: 'application/pdf',
+            cacheControl: 'public, max-age=31536000',
+          },
+        });
+        console.log(`✅ Uploaded resume to Firebase Storage: ${remotePath}`);
+      } catch (uploadError) {
+        console.warn('⚠️ Failed to upload resume to Firebase Storage:', uploadError.message);
+      }
+    }
 
     // 6. Calculate Status based on filtering logic rules
     let status = 'Review';

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
@@ -6,14 +9,17 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const storageBucketName = process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET || '';
 let app;
 
 // 1. Check if FIREBASE_SERVICE_ACCOUNT env var is present
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    const bucketName = storageBucketName || (serviceAccount.project_id ? `${serviceAccount.project_id}.appspot.com` : undefined);
     app = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+      credential: admin.credential.cert(serviceAccount),
+      ...(bucketName ? { storageBucket: bucketName } : {}),
     });
     console.log('✅ Firebase Admin initialized via FIREBASE_SERVICE_ACCOUNT env var.');
   } catch (err) {
@@ -27,8 +33,10 @@ if (!app) {
   if (fs.existsSync(localKeyPath)) {
     try {
       const serviceAccount = JSON.parse(fs.readFileSync(localKeyPath, 'utf8'));
+      const bucketName = storageBucketName || (serviceAccount.project_id ? `${serviceAccount.project_id}.appspot.com` : undefined);
       app = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+        credential: admin.credential.cert(serviceAccount),
+        ...(bucketName ? { storageBucket: bucketName } : {}),
       });
       console.log('✅ Firebase Admin initialized via local serviceAccountKey.json.');
     } catch (err) {
@@ -216,9 +224,18 @@ const createMockAuth = () => {
 export let db;
 export let auth;
 
+export let storage;
+
 if (app) {
   db = admin.firestore();
   auth = admin.auth();
+  try {
+    storage = admin.storage().bucket();
+    console.log(`✅ Firebase Storage initialized${storageBucketName ? ` using bucket ${storageBucketName}` : ''}.`);
+  } catch (err) {
+    console.warn('⚠️ Firebase Storage initialization failed:', err.message);
+    storage = null;
+  }
 } else {
   console.warn('⚠️ No Firebase Credentials configuration found! Using local in-memory DB and Auth fallbacks.');
   db = createMockDb();
