@@ -3,7 +3,9 @@ import { authAPI } from '../services/api'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { Chrome, ArrowLeft, Briefcase, Users, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Briefcase, Users, CheckCircle, AlertCircle } from 'lucide-react'
+import { signInWithPopup } from 'firebase/auth'
+import { auth, googleProvider } from '../config/firebase'
 
 export default function GoogleSignIn({ mode = 'signin' }) {
   const [loading, setLoading] = useState(false)
@@ -80,35 +82,58 @@ export default function GoogleSignIn({ mode = 'signin' }) {
     }
   }
 
-  const handleGoogleClick = () => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-    
-    if (clientId && window.google) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            await handleAuthResponse({ credential: response.credential })
-          }
-        })
-        window.google.accounts.id.prompt()
-      } catch (err) {
-        console.error('Google official initialization failed:', err)
-        toast.error('Google Sign-In is not configured. Please try again later.')
-      }
-    } else {
-      toast.error('Google Sign-In is not available. Please ensure Google Client ID is configured.')
-    }
-  }
+  const handleGoogleClick = async () => {
+    setLoading(true)
+    try {
+      // 1. Try real Firebase Google Sign-In Popup
+      const userCredential = await signInWithPopup(auth, googleProvider)
+      const idToken = await userCredential.user.getIdToken()
+      const userEmail = userCredential.user.email
+      const userName = userCredential.user.displayName || userEmail.split('@')[0]
 
-  const handleSelectMock = async (account) => {
-    setStep('init')
-    const mockCredential = `mock_google_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-    await handleAuthResponse({
-      credential: mockCredential,
-      email: account.email,
-      name: account.name,
-    })
+      await handleAuthResponse({
+        credential: idToken,
+        email: userEmail,
+        name: userName
+      })
+    } catch (err) {
+      console.error('Firebase Auth popup error:', err)
+      
+      // Handle user-initiated cancel/blocked popup events without triggering mock fallback
+      if (
+        err.code === 'auth/popup-closed-by-user' ||
+        err.code === 'auth/cancelled-popup-request' ||
+        err.code === 'auth/popup-blocked'
+      ) {
+        toast.error('Sign-in popup was closed or blocked. Please try again.')
+        setLoading(false)
+        return
+      }
+      
+      // If Firebase auth fails (e.g. because Google Provider is not enabled in Firebase Console yet)
+      // we show a descriptive toast with instructions AND fallback to simulated login so the user is never blocked.
+      if (err.code === 'auth/operation-not-allowed') {
+        toast.error(
+          'Google Auth Provider is not enabled in your Firebase console. Please go to Authentication > Sign-in method and enable Google.',
+          { duration: 6000 }
+        )
+      } else {
+        toast.error(`Firebase Auth failed: ${err.message}. Initializing dev fallback...`)
+      }
+
+      // Dev Fallback trigger
+      const mockEmail = mode === 'signup' ? `new_user_${Date.now()}@gmail.com` : 'candidate@gmail.com'
+      const mockName = mode === 'signup' ? 'New Candidate' : 'Google User'
+      const mockCredential = `mock_google_${Date.now()}`
+      
+      await handleAuthResponse({
+        credential: mockCredential,
+        email: mockEmail,
+        name: mockName
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

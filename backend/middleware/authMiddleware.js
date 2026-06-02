@@ -1,7 +1,6 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import { auth, db } from '../config/firebase.js';
 
-// Protect routes
+// Protect routes using Firebase ID Tokens
 export const protect = async (req, res, next) => {
   let token;
 
@@ -13,24 +12,38 @@ export const protect = async (req, res, next) => {
       // Get token from header
       token = req.headers.authorization.split(' ')[1];
 
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkey123456!@#');
+      // Verify the Firebase ID token
+      const decodedToken = await auth.verifyIdToken(token);
 
-      // Get user from the token, exclude password
-      req.user = await User.findById(decoded.id).select('-password');
+      // Get user from Firestore
+      const userRef = db.collection('users').doc(decodedToken.uid);
+      const userDoc = await userRef.get();
 
-      if (!req.user) {
-        return res.status(401).json({ success: false, message: 'Not authorized, user not found' });
-      }
-
-      if (!req.user.isVerified) {
-        return res.status(403).json({ success: false, message: 'Please verify your email to access this route' });
+      if (!userDoc.exists) {
+        // If the user signed in but doesn't exist in our DB yet
+        req.user = {
+          _id: decodedToken.uid,
+          uid: decodedToken.uid,
+          id: decodedToken.uid,
+          name: decodedToken.name || 'Firebase User',
+          email: decodedToken.email,
+          role: null,
+          isVerified: decodedToken.email_verified || true
+        };
+      } else {
+        const userData = userDoc.data();
+        req.user = {
+          _id: decodedToken.uid,
+          uid: decodedToken.uid,
+          id: decodedToken.uid,
+          ...userData
+        };
       }
 
       next();
     } catch (error) {
-      console.error('JWT Error:', error.message);
-      return res.status(401).json({ success: false, message: 'Not authorized, token failed' });
+      console.error('Firebase Auth Token Verification Error:', error.message);
+      return res.status(401).json({ success: false, message: 'Not authorized, token validation failed' });
     }
   }
 

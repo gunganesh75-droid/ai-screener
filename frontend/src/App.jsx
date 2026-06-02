@@ -58,6 +58,8 @@ export default function App() {
       {/* ── Auth Routes (redirect if logged in) ───────────── */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+
+      {/* ── Legacy password routes — redirect to login ─────── */}
       <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
       <Route path="/reset-password" element={<Navigate to="/login" replace />} />
 

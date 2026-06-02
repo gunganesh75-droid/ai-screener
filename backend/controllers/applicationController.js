@@ -1,9 +1,6 @@
-import Application from '../models/Application.js';
-import Job from '../models/Job.js';
-import User from '../models/User.js';
+import { db } from '../config/firebase.js';
 import fs from 'fs';
 import { extractTextFromPDF, analyzeResume } from '../services/aiService.js';
-
 
 /**
  * @desc    Apply for a job (Candidate uploads resume, triggers AI screening)
@@ -15,7 +12,6 @@ export const applyForJob = async (req, res) => {
   const resumeFile = req.file;
 
   if (!jobId) {
-    // Clean up uploaded file if present
     if (resumeFile) fs.unlinkSync(resumeFile.path);
     return res.status(400).json({ success: false, message: 'Please provide job ID' });
   }
@@ -25,20 +21,23 @@ export const applyForJob = async (req, res) => {
   }
 
   try {
+    const userId = req.user.id || req.user.uid;
+
     // 1. Verify Job exists
-    const job = await Job.findById(jobId).populate('createdBy', 'name email');
-    if (!job) {
+    const jobDoc = await db.collection('jobs').doc(jobId).get();
+    if (!jobDoc.exists) {
       fs.unlinkSync(resumeFile.path);
       return res.status(404).json({ success: false, message: 'Job opening not found' });
     }
+    const job = jobDoc.data();
 
     // 2. Check if candidate has already applied for this job
-    const existingApplication = await Application.findOne({
-      candidateId: req.user._id,
-      jobId,
-    });
+    const existingApps = await db.collection('applications')
+      .where('candidateId', '==', userId)
+      .where('jobId', '==', jobId)
+      .get();
 
-    if (existingApplication) {
+    if (!existingApps.empty) {
       fs.unlinkSync(resumeFile.path);
       return res.status(400).json({ success: false, message: 'You have already applied for this position' });
     }
@@ -60,8 +59,6 @@ export const applyForJob = async (req, res) => {
       job.skillsRequired
     );
 
-    // Save PDF locally under a persistent route or relative file URL
-    // For local application, we will store the uploaded path as the resumeUrl.
     const resumeUrl = `/uploads/${resumeFile.filename}`;
 
     // 5. Calculate Status based on filtering logic rules:
@@ -73,9 +70,13 @@ export const applyForJob = async (req, res) => {
       status = 'Rejected';
     }
 
-    // 6. Save Application in MongoDB
-    const application = new Application({
-      candidateId: req.user._id,
+    // 6. Save Application in Firestore
+    const appRef = db.collection('applications').doc();
+    const applicationData = {
+      id: appRef.id,
+      candidateId: userId,
+      candidateName: req.user.name || '',
+      candidateEmail: req.user.email || '',
       jobId,
       resumeUrl,
       parsedResumeText,
@@ -86,22 +87,25 @@ export const applyForJob = async (req, res) => {
       strengths: aiAnalysis.strengths,
       weaknesses: aiAnalysis.weaknesses,
       recommendation: aiAnalysis.recommendation,
-      status: status, // Automatically assign filtered status
-    });
+      status: status,
+      createdAt: new Date().toISOString()
+    };
 
-    await application.save();
+    await appRef.set(applicationData);
 
     res.status(201).json({
       success: true,
       message: 'Application submitted and AI-screened successfully!',
-      application,
+      application: {
+        _id: appRef.id,
+        ...applicationData
+      },
     });
 
   } catch (error) {
     console.error('Apply Job Error:', error.message);
-    // Cleanup physical file on crash
     if (resumeFile && fs.existsSync(resumeFile.path)) {
-      try { fs.unlinkSync(resumeFile.path); } catch (e) { console.error('FS Unlink error:', e.message); }
+      try { fs.unlinkSync(resumeFile.path); } catch (e) {}
     }
     res.status(500).json({ success: false, message: error.message || 'Server error during application' });
   }
@@ -117,19 +121,39 @@ export const getApplicationsForJob = async (req, res) => {
 
   try {
     // 1. Verify Job and ownership
-    const job = await Job.findById(jobId);
-    if (!job) {
+    const jobDoc = await db.collection('jobs').doc(jobId).get();
+    if (!jobDoc.exists) {
       return res.status(404).json({ success: false, message: 'Job posting not found' });
     }
+    const job = jobDoc.data();
+    const userId = req.user.id || req.user.uid;
 
-    if (job.createdBy.toString() !== req.user._id.toString()) {
+    if (job.createdBy !== userId) {
       return res.status(403).json({ success: false, message: 'Not authorized to view applicants for this job' });
     }
 
     // 2. Fetch applications, sort by matchScore DESC
-    const applications = await Application.find({ jobId })
-      .populate('candidateId', 'name email')
-      .sort({ aiScore: -1 });
+    const appsSnapshot = await db.collection('applications')
+      .where('jobId', '==', jobId)
+      .get();
+
+    let applications = [];
+    appsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      applications.push({
+        _id: doc.id,
+        id: doc.id,
+        ...data,
+        candidateId: {
+          _id: data.candidateId,
+          name: data.candidateName || 'Candidate',
+          email: data.candidateEmail || ''
+        }
+      });
+    });
+
+    // Sort by AI Score DESC
+    applications.sort((a, b) => b.aiScore - a.aiScore);
 
     res.status(200).json({
       success: true,
@@ -149,17 +173,56 @@ export const getApplicationsForJob = async (req, res) => {
  */
 export const getMyApplications = async (req, res) => {
   try {
-    const applications = await Application.find({ candidateId: req.user._id })
-      .populate({
-        path: 'jobId',
-        select: 'title company salary location description',
-      })
-      .sort({ createdAt: -1 });
+    const userId = req.user.id || req.user.uid;
+
+    const appsSnapshot = await db.collection('applications')
+      .where('candidateId', '==', userId)
+      .get();
+
+    const applications = [];
+
+    // Gather application data
+    const appPromises = appsSnapshot.docs.map(async (doc) => {
+      const appData = doc.data();
+      
+      // Populate job details
+      let jobDetails = { title: 'Unknown Position', company: 'Unknown Company', salary: '', location: '' };
+      try {
+        const jobDoc = await db.collection('jobs').doc(appData.jobId).get();
+        if (jobDoc.exists) {
+          const jd = jobDoc.data();
+          jobDetails = {
+            title: jd.title,
+            company: jd.company,
+            salary: jd.salary,
+            location: jd.location,
+            description: jd.description
+          };
+        }
+      } catch (err) {
+        console.error(`Failed to load job details for application ${doc.id}:`, err.message);
+      }
+
+      return {
+        _id: doc.id,
+        id: doc.id,
+        ...appData,
+        jobId: {
+          _id: appData.jobId,
+          ...jobDetails
+        }
+      };
+    });
+
+    const populatedApps = await Promise.all(appPromises);
+
+    // Sort by newest application first
+    populatedApps.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.status(200).json({
       success: true,
-      count: applications.length,
-      applications,
+      count: populatedApps.length,
+      applications: populatedApps,
     });
   } catch (error) {
     console.error('Get My Applications Error:', error.message);
@@ -181,24 +244,38 @@ export const updateApplicationStatus = async (req, res) => {
   }
 
   try {
-    const application = await Application.findById(id).populate('jobId');
+    const appRef = db.collection('applications').doc(id);
+    const appDoc = await appRef.get();
 
-    if (!application) {
+    if (!appDoc.exists) {
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
+    const application = appDoc.data();
+
     // Verify requesting HR is the creator of the associated Job
-    if (application.jobId.createdBy.toString() !== req.user._id.toString()) {
+    const jobDoc = await db.collection('jobs').doc(application.jobId).get();
+    if (!jobDoc.exists) {
+      return res.status(404).json({ success: false, message: 'Associated job posting not found' });
+    }
+    
+    const job = jobDoc.data();
+    const userId = req.user.id || req.user.uid;
+
+    if (job.createdBy !== userId) {
       return res.status(403).json({ success: false, message: 'Not authorized to modify this candidate status' });
     }
 
-    application.status = status;
-    await application.save();
+    await appRef.update({ status });
 
     res.status(200).json({
       success: true,
       message: `Candidate application marked as ${status} successfully.`,
-      application,
+      application: {
+        _id: id,
+        ...application,
+        status
+      },
     });
   } catch (error) {
     console.error('Update Application Status Error:', error.message);
@@ -231,37 +308,52 @@ export const screenResumeDirectly = async (req, res) => {
 
   try {
     // 1. Verify Job exists and is owned by this HR
-    const job = await Job.findById(jobId);
-    if (!job) {
+    const jobDoc = await db.collection('jobs').doc(jobId).get();
+    if (!jobDoc.exists) {
       fs.unlinkSync(resumeFile.path);
       return res.status(404).json({ success: false, message: 'Job opening not found' });
     }
+    
+    const job = jobDoc.data();
+    const userId = req.user.id || req.user.uid;
 
-    if (job.createdBy.toString() !== req.user._id.toString()) {
+    if (job.createdBy !== userId) {
       fs.unlinkSync(resumeFile.path);
       return res.status(403).json({ success: false, message: 'Not authorized to screen resumes for this job' });
     }
 
-    // 2. Find or create the candidate user
-    let candidate = await User.findOne({ email: candidateEmail.toLowerCase().trim() });
-    if (!candidate) {
-      candidate = new User({
-        name: candidateName.trim(),
+    // 2. Find or create the candidate user in Firestore
+    const candidateQuery = await db.collection('users')
+      .where('email', '==', candidateEmail.toLowerCase().trim())
+      .get();
+    
+    let candidateId;
+    let candidateNameVal = candidateName.trim();
+
+    if (candidateQuery.empty) {
+      const newCandRef = db.collection('users').doc();
+      candidateId = newCandRef.id;
+      await newCandRef.set({
+        id: candidateId,
+        name: candidateNameVal,
         email: candidateEmail.toLowerCase().trim(),
-        password: Math.random().toString(36).slice(-8), // random temp password
         role: 'candidate',
-        isVerified: true, // Auto-verified since created by HR
+        isVerified: true,
+        createdAt: new Date().toISOString()
       });
-      await candidate.save();
+    } else {
+      const existingCand = candidateQuery.docs[0];
+      candidateId = existingCand.id;
+      candidateNameVal = existingCand.data().name;
     }
 
     // 3. Check if this candidate already has an application for this job
-    const existingApplication = await Application.findOne({
-      candidateId: candidate._id,
-      jobId,
-    });
+    const existingApps = await db.collection('applications')
+      .where('candidateId', '==', candidateId)
+      .where('jobId', '==', jobId)
+      .get();
 
-    if (existingApplication) {
+    if (!existingApps.empty) {
       fs.unlinkSync(resumeFile.path);
       return res.status(400).json({ success: false, message: 'This candidate has already been screened for this position' });
     }
@@ -293,9 +385,13 @@ export const screenResumeDirectly = async (req, res) => {
       status = 'Rejected';
     }
 
-    // 7. Save Application
-    const application = new Application({
-      candidateId: candidate._id,
+    // 7. Save Application in Firestore
+    const appRef = db.collection('applications').doc();
+    const appData = {
+      id: appRef.id,
+      candidateId: candidateId,
+      candidateName: candidateNameVal,
+      candidateEmail: candidateEmail.toLowerCase().trim(),
       jobId,
       resumeUrl,
       parsedResumeText,
@@ -307,19 +403,21 @@ export const screenResumeDirectly = async (req, res) => {
       weaknesses: aiAnalysis.weaknesses,
       recommendation: aiAnalysis.recommendation,
       status: status,
-    });
+      createdAt: new Date().toISOString()
+    };
 
-    await application.save();
+    await appRef.set(appData);
 
     res.status(201).json({
       success: true,
       message: 'Resume uploaded and screened successfully by AI!',
       application: {
-        ...application.toObject(),
+        _id: appRef.id,
+        ...appData,
         candidateId: {
-          _id: candidate._id,
-          name: candidate.name,
-          email: candidate.email,
+          _id: candidateId,
+          name: candidateNameVal,
+          email: candidateEmail.toLowerCase().trim(),
         }
       },
     });

@@ -1,5 +1,4 @@
-import Job from '../models/Job.js';
-import Application from '../models/Application.js';
+import { db } from '../config/firebase.js';
 
 /**
  * @desc    Create a new job posting
@@ -18,22 +17,30 @@ export const createJob = async (req, res) => {
       ? skillsRequired
       : skillsRequired.split(',').map((s) => s.trim());
 
-    const job = new Job({
-      title,
-      company,
-      description,
+    // Create job ref with auto-generated ID
+    const jobRef = db.collection('jobs').doc();
+    
+    const jobData = {
+      id: jobRef.id,
+      title: title.trim(),
+      company: company.trim(),
+      description: description.trim(),
       skillsRequired: skillsArray,
-      salary,
-      location,
-      createdBy: req.user._id,
-    });
+      salary: salary.trim(),
+      location: location.trim(),
+      createdBy: req.user.id || req.user.uid,
+      createdByName: req.user.name || '',
+      createdByEmail: req.user.email || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-    await job.save();
+    await jobRef.set(jobData);
 
     res.status(201).json({
       success: true,
       message: 'Job posting created successfully',
-      job,
+      job: jobData,
     });
   } catch (error) {
     console.error('Create Job Error:', error.message);
@@ -50,22 +57,39 @@ export const getJobs = async (req, res) => {
   const { search, location } = req.query;
 
   try {
-    let query = {};
+    const jobsSnapshot = await db.collection('jobs').orderBy('createdAt', 'desc').get();
+    let jobs = [];
+    
+    jobsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      // Populate createdBy mock object for frontend compatibility
+      jobs.push({
+        _id: doc.id,
+        id: doc.id,
+        ...data,
+        createdBy: {
+          _id: data.createdBy,
+          name: data.createdByName || 'Recruiter',
+          email: data.createdByEmail || ''
+        }
+      });
+    });
 
+    // In-memory filter to support full regex-like search behavior on Firestore
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-      ];
+      const searchLower = search.toLowerCase();
+      jobs = jobs.filter(
+        (job) =>
+          job.title.toLowerCase().includes(searchLower) ||
+          job.company.toLowerCase().includes(searchLower) ||
+          job.description.toLowerCase().includes(searchLower)
+      );
     }
 
     if (location) {
-      query.location = { $regex: location, $options: 'i' };
+      const locationLower = location.toLowerCase();
+      jobs = jobs.filter((job) => job.location.toLowerCase().includes(locationLower));
     }
-
-    // Sort by newest first
-    const jobs = await Job.find(query).sort({ createdAt: -1 }).populate('createdBy', 'name email');
 
     res.status(200).json({
       success: true,
@@ -85,11 +109,23 @@ export const getJobs = async (req, res) => {
  */
 export const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate('createdBy', 'name email');
+    const jobDoc = await db.collection('jobs').doc(req.params.id).get();
 
-    if (!job) {
+    if (!jobDoc.exists) {
       return res.status(404).json({ success: false, message: 'Job posting not found' });
     }
+
+    const data = jobDoc.data();
+    const job = {
+      _id: jobDoc.id,
+      id: jobDoc.id,
+      ...data,
+      createdBy: {
+        _id: data.createdBy,
+        name: data.createdByName || 'Recruiter',
+        email: data.createdByEmail || ''
+      }
+    };
 
     res.status(200).json({
       success: true,
@@ -97,9 +133,6 @@ export const getJobById = async (req, res) => {
     });
   } catch (error) {
     console.error('Get Job By ID Error:', error.message);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ success: false, message: 'Job posting not found' });
-    }
     res.status(500).json({ success: false, message: 'Server error while fetching job details' });
   }
 };
@@ -113,44 +146,55 @@ export const updateJob = async (req, res) => {
   const { title, company, description, skillsRequired, salary, location } = req.body;
 
   try {
-    let job = await Job.findById(req.params.id);
+    const jobRef = db.collection('jobs').doc(req.params.id);
+    const jobDoc = await jobRef.get();
 
-    if (!job) {
+    if (!jobDoc.exists) {
       return res.status(404).json({ success: false, message: 'Job posting not found' });
     }
 
-    // Make sure user owns job
-    if (job.createdBy.toString() !== req.user._id.toString()) {
+    const jobData = jobDoc.data();
+    const userId = req.user.id || req.user.uid;
+
+    // Verify ownership
+    if (jobData.createdBy !== userId) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to edit this job posting',
       });
     }
 
-    const skillsArray = Array.isArray(skillsRequired)
-      ? skillsRequired
-      : skillsRequired.split(',').map((s) => s.trim());
+    const updates = {
+      updatedAt: new Date().toISOString()
+    };
 
-    // Update fields
-    job.title = title || job.title;
-    job.company = company || job.company;
-    job.description = description || job.description;
-    job.skillsRequired = skillsRequired ? skillsArray : job.skillsRequired;
-    job.salary = salary || job.salary;
-    job.location = location || job.location;
+    if (title) updates.title = title.trim();
+    if (company) updates.company = company.trim();
+    if (description) updates.description = description.trim();
+    if (salary) updates.salary = salary.trim();
+    if (location) updates.location = location.trim();
+    
+    if (skillsRequired) {
+      updates.skillsRequired = Array.isArray(skillsRequired)
+        ? skillsRequired
+        : skillsRequired.split(',').map((s) => s.trim());
+    }
 
-    await job.save();
+    await jobRef.update(updates);
+
+    const updatedDoc = await jobRef.get();
 
     res.status(200).json({
       success: true,
       message: 'Job posting updated successfully',
-      job,
+      job: {
+        _id: jobRef.id,
+        id: jobRef.id,
+        ...updatedDoc.data()
+      },
     });
   } catch (error) {
     console.error('Update Job Error:', error.message);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ success: false, message: 'Job posting not found' });
-    }
     res.status(500).json({ success: false, message: 'Server error while updating job' });
   }
 };
@@ -162,25 +206,34 @@ export const updateJob = async (req, res) => {
  */
 export const deleteJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const jobRef = db.collection('jobs').doc(req.params.id);
+    const jobDoc = await jobRef.get();
 
-    if (!job) {
+    if (!jobDoc.exists) {
       return res.status(404).json({ success: false, message: 'Job posting not found' });
     }
 
-    // Make sure user owns job
-    if (job.createdBy.toString() !== req.user._id.toString()) {
+    const jobData = jobDoc.data();
+    const userId = req.user.id || req.user.uid;
+
+    // Verify ownership
+    if (jobData.createdBy !== userId) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this job posting',
       });
     }
 
-    // Delete job
-    await Job.findByIdAndDelete(req.params.id);
+    // Delete job document
+    await jobRef.delete();
     
-    // Clean up related applications
-    await Application.deleteMany({ jobId: req.params.id });
+    // Clean up related applications in applications collection
+    const appsSnapshot = await db.collection('applications').where('jobId', '==', req.params.id).get();
+    const batch = db.batch();
+    appsSnapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
 
     res.status(200).json({
       success: true,
@@ -188,9 +241,6 @@ export const deleteJob = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete Job Error:', error.message);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ success: false, message: 'Job posting not found' });
-    }
     res.status(500).json({ success: false, message: 'Server error while deleting job' });
   }
 };

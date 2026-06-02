@@ -1,14 +1,30 @@
 import axios from 'axios'
+import { auth } from '../config/firebase'
+import { getIdToken } from 'firebase/auth'
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 30000,
 })
 
-// Attach JWT token to every request
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('rs_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+// Attach fresh Firebase ID token to every request
+API.interceptors.request.use(async (config) => {
+  try {
+    const currentUser = auth.currentUser
+    if (currentUser) {
+      // Always get a fresh token (Firebase auto-refreshes if expired)
+      const freshToken = await getIdToken(currentUser, false)
+      localStorage.setItem('rs_token', freshToken)
+      config.headers.Authorization = `Bearer ${freshToken}`
+    } else {
+      // Fallback to stored token (for mock/dev mode)
+      const token = localStorage.getItem('rs_token')
+      if (token) config.headers.Authorization = `Bearer ${token}`
+    }
+  } catch {
+    const token = localStorage.getItem('rs_token')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
 
@@ -27,11 +43,7 @@ API.interceptors.response.use(
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authAPI = {
-  register: (data) => API.post('/auth/register', data),
-  login: (data) => API.post('/auth/login', data),
   googleLogin: (data) => API.post('/auth/google', data),
-  forgotPassword: (data) => API.post('/auth/forgot-password', data),
-  resetPassword: (data) => API.post('/auth/reset-password', data),
 }
 
 // ── Jobs ──────────────────────────────────────────────────────────────────────
@@ -48,7 +60,7 @@ export const applicationsAPI = {
   apply: (formData) =>
     API.post('/applications/apply', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000, // PDF upload + AI analysis can take time
+      timeout: 90000, // PDF upload + AI analysis can take time
     }),
   getMyApplications: () => API.get('/applications/my-applications'),
   getJobApplications: (jobId) => API.get(`/applications/job/${jobId}`),
@@ -56,7 +68,7 @@ export const applicationsAPI = {
   screenDirect: (formData) =>
     API.post('/applications/screen-direct', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000, // Direct upload + AI analysis
+      timeout: 90000,
     }),
 }
 
