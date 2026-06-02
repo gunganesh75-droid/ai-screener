@@ -57,23 +57,44 @@ export default function GoogleSignIn({ mode = 'signin' }) {
       })
 
       if (data.success) {
+        // If backend indicates the account needs a role, the user is not registered yet
         if (data.needsRole) {
-          // New user: must pick a role
+          if (mode === 'signin') {
+            // Sign In flow: blocked for unregistered emails
+            toast.error('This email is not registered. Please sign up first.')
+            return
+          }
+
+          // Sign Up flow: new user must pick a role
           setPendingAuth({
             credential: payload.credential,
             email: data.email,
             name: data.name,
           })
           setStep('role_select')
-        } else {
-          // Existing user: direct login
-          if (data.isNewUser) {
-            localStorage.setItem('rs_is_new_user', 'true')
-          }
-          login(data.user, data.token)
-          toast.success(`Welcome back, ${data.user.name}!`)
-          navigate(data.user.role === 'hr' ? '/hr/dashboard' : '/candidate/dashboard')
+          return
         }
+
+        // Account exists
+        if (mode === 'signup' && !data.isNewUser) {
+          // Prevent duplicate signup: redirect user to sign in
+          toast(
+            'This email is already registered. Redirecting to Sign In...',
+            { icon: <AlertCircle size={16} /> }
+          )
+          // Perform login flow (one-tap) so user doesn't have to re-enter password
+          login(data.user, data.token)
+          navigate(data.user.role === 'hr' ? '/hr/dashboard' : '/candidate/dashboard')
+          return
+        }
+
+        // Normal sign-in / returning user
+        if (data.isNewUser) {
+          localStorage.setItem('rs_is_new_user', 'true')
+        }
+        login(data.user, data.token)
+        toast.success(`Welcome back, ${data.user.name}!`)
+        navigate(data.user.role === 'hr' ? '/hr/dashboard' : '/candidate/dashboard')
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Google authentication failed')
