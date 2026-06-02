@@ -109,6 +109,15 @@ export default function GoogleSignIn({ mode = 'signin' }) {
         setLoading(false)
         return
       }
+
+      if (err.code === 'auth/account-exists-with-different-credential' || err.code === 'auth/credential-already-in-use') {
+        toast.error(
+          'This Google email is already linked to another sign-in method. Please sign in with the same account or use your existing password login.',
+          { duration: 7000 }
+        )
+        setLoading(false)
+        return
+      }
       
       // If Firebase auth fails (e.g. because Google Provider is not enabled in Firebase Console yet)
       // we show a descriptive toast with instructions AND fallback to simulated login so the user is never blocked.

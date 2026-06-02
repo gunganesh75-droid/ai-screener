@@ -14,4 +14,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Force account selection each time so the user sees available Google emails
+// instead of the browser auto-selecting an already signed-in account.
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
 export const db = getFirestore(app);

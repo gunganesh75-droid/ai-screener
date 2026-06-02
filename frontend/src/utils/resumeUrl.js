@@ -4,10 +4,15 @@ export const resolveResumeUrl = (resumeUrl) => {
 
   const normalizedPath = resumeUrl.startsWith('/') ? resumeUrl : `/${resumeUrl}`
   const envApiUrl = import.meta.env.VITE_API_URL || ''
-  const baseUrl = envApiUrl.replace(/\/api\/?$/, '')
-
-  if (baseUrl) {
-    return `${baseUrl}${normalizedPath}`
+  if (envApiUrl) {
+    try {
+      const apiUrl = new URL(envApiUrl, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+      const basePath = apiUrl.pathname.replace(/\/$/, '')
+      return `${apiUrl.origin}${basePath}${normalizedPath}`
+    } catch (err) {
+      const baseUrl = envApiUrl.replace(/\/api\/?$/, '')
+      return `${baseUrl}${normalizedPath}`
+    }
   }
 
   if (typeof window !== 'undefined' && window.location) {
