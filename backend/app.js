@@ -19,17 +19,31 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // ─── CORS (must come before Helmet so preflight works) ───────────────────────
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'https://ai-screener-cyan.vercel.app',
+];
+
 app.use(
   cors({
     origin: function (origin, callback) {
+      // Allow requests with no origin (curl, Postman, server-to-server)
       if (!origin) return callback(null, true);
-      if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
-        return callback(null, true);
-      }
+
       const clientUrl = (process.env.CLIENT_URL || '').trim();
-      if (clientUrl && origin === clientUrl) {
-        return callback(null, true);
-      }
+
+      // Explicit whitelist check
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+
+      // Also allow the configured CLIENT_URL from env
+      if (clientUrl && origin === clientUrl) return callback(null, true);
+
+      // Allow any Vercel preview deployment for this project
+      if (origin.match(/^https:\/\/ai-screener.*\.vercel\.app$/)) return callback(null, true);
+
+      console.warn(`CORS blocked: ${origin}`);
       return callback(new Error(`CORS: Origin ${origin} not allowed`), false);
     },
     credentials: true,
