@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { applicationsAPI } from '../services/api'
 import { toast } from 'react-hot-toast'
 import StatusBadge from '../components/StatusBadge'
@@ -14,9 +14,6 @@ export default function ApplicantDetails() {
   const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
-    // We fetch via job applications – but if coming from direct link, use a stored ID approach.
-    // For now, we get all my applications won't work for HR — store app in state from ApplicantsPage
-    // Instead, let's make a generic approach by using the applicants list — stored in sessionStorage
     const stored = sessionStorage.getItem(`app_${id}`)
     if (stored) {
       setApp(JSON.parse(stored))
@@ -41,6 +38,9 @@ export default function ApplicantDetails() {
   if (!app) return null
 
   const scoreTextColor = app.aiScore >= 70 ? 'text-emerald-400' : app.aiScore >= 50 ? 'text-amber-400' : 'text-red-400'
+  const resumeHref = app.resumeUrl
+    ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`)
+    : '#'
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto">
@@ -50,27 +50,42 @@ export default function ApplicantDetails() {
 
       {/* Header card */}
       <div className="card mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-          <ScoreRing score={app.aiScore} size={100} />
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-white">{app.candidateId?.name}</h1>
-              <StatusBadge status={app.status} />
-            </div>
-            <p className="text-slate-400 mb-1">{app.candidateId?.email}</p>
-            <p className="text-slate-500 text-sm">Applied {new Date(app.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className={`text-sm font-semibold ${scoreTextColor}`}>AI Recommendation: {app.recommendation}</span>
+        <div className="flex flex-col gap-4">
+          {/* Candidate info + score */}
+          <div className="flex items-start gap-4">
+            <ScoreRing score={app.aiScore} size={80} />
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-white break-words">{app.candidateId?.name}</h1>
+                <StatusBadge status={app.status} />
+              </div>
+              <p className="text-slate-400 text-sm break-all mb-1">{app.candidateId?.email}</p>
+              <p className="text-slate-500 text-xs">Applied {new Date(app.createdAt).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</p>
+              <p className={`text-sm font-semibold mt-1 ${scoreTextColor}`}>AI Recommendation: {app.recommendation}</p>
             </div>
           </div>
-          <div className="flex flex-col gap-2 self-start">
-            <button onClick={() => updateStatus('Shortlisted')} disabled={updating} className="btn-success !py-2 !px-4 !text-sm">
+
+          {/* Action buttons — full width row on mobile */}
+          <div className="flex flex-wrap gap-2 border-t border-slate-800/60 pt-4">
+            <button
+              onClick={() => updateStatus('Shortlisted')}
+              disabled={updating}
+              className="btn-success !py-2 !px-4 !text-sm flex-1 min-w-[100px] justify-center"
+            >
               <CheckCircle size={14} /> Shortlist
             </button>
-            <button onClick={() => updateStatus('Review')} disabled={updating} className="px-4 py-2 rounded-xl text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-sm font-semibold flex items-center gap-1.5 transition-all">
+            <button
+              onClick={() => updateStatus('Review')}
+              disabled={updating}
+              className="flex-1 min-w-[100px] px-4 py-2 rounded-xl text-amber-400 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-sm font-semibold flex items-center justify-center gap-1.5 transition-all"
+            >
               <Clock size={14} /> Review
             </button>
-            <button onClick={() => updateStatus('Rejected')} disabled={updating} className="btn-danger !py-2 !px-4 !text-sm">
+            <button
+              onClick={() => updateStatus('Rejected')}
+              disabled={updating}
+              className="btn-danger !py-2 !px-4 !text-sm flex-1 min-w-[100px] justify-center"
+            >
               <XCircle size={14} /> Reject
             </button>
           </div>
@@ -94,7 +109,7 @@ export default function ApplicantDetails() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {app.matchedSkills?.length > 0 && (
                 <div>
-                  <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wide mb-2">✅ Matched Skills ({app.matchedSkills.length})</p>
+                  <p className="text-emerald-400 text-xs font-semibold uppercase tracking-wide mb-2">✅ Matched ({app.matchedSkills.length})</p>
                   <div className="flex flex-wrap gap-1.5">
                     {app.matchedSkills.map(s => (
                       <span key={s} className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-lg font-medium">{s}</span>
@@ -104,7 +119,7 @@ export default function ApplicantDetails() {
               )}
               {app.missingSkills?.length > 0 && (
                 <div>
-                  <p className="text-red-400 text-xs font-semibold uppercase tracking-wide mb-2">❌ Missing Skills ({app.missingSkills.length})</p>
+                  <p className="text-red-400 text-xs font-semibold uppercase tracking-wide mb-2">❌ Missing ({app.missingSkills.length})</p>
                   <div className="flex flex-wrap gap-1.5">
                     {app.missingSkills.map(s => (
                       <span key={s} className="px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg font-medium">{s}</span>
@@ -149,15 +164,21 @@ export default function ApplicantDetails() {
           )}
         </div>
 
-        {/* Right — Info & Actions */}
+        {/* Right — Info & Resume */}
         <div className="space-y-5">
           <div className="card">
             <h3 className="text-white font-semibold mb-4 flex items-center gap-2"><User size={15} className="text-primary-400" /> Candidate Info</h3>
             <dl className="space-y-3 text-sm">
-              {[['Name', app.candidateId?.name], ['Email', app.candidateId?.email], ['Applied', new Date(app.createdAt).toLocaleDateString()], ['AI Score', `${app.aiScore}%`], ['Recommendation', app.recommendation]].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-2">
-                  <dt className="text-slate-600 font-medium">{k}</dt>
-                  <dd className="text-slate-300 text-right">{v}</dd>
+              {[
+                ['Name', app.candidateId?.name],
+                ['Email', app.candidateId?.email],
+                ['Applied', new Date(app.createdAt).toLocaleDateString()],
+                ['AI Score', `${app.aiScore}%`],
+                ['Recommendation', app.recommendation]
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-2 flex-wrap">
+                  <dt className="text-slate-500 font-medium flex-shrink-0">{k}</dt>
+                  <dd className="text-slate-300 text-right break-all">{v}</dd>
                 </div>
               ))}
             </dl>
@@ -167,7 +188,7 @@ export default function ApplicantDetails() {
             <h3 className="text-white font-semibold mb-3 flex items-center gap-2"><FileText size={15} className="text-primary-400" /> Resume</h3>
             <div className="flex flex-col gap-2">
               <a
-                href={app.resumeUrl ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`) : '#'}
+                href={resumeHref}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-secondary w-full justify-center !text-sm !py-2.5"
@@ -175,7 +196,7 @@ export default function ApplicantDetails() {
                 <FileText size={14} /> View PDF
               </a>
               <a
-                href={app.resumeUrl ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`) : '#'}
+                href={resumeHref}
                 download
                 className="btn-secondary w-full justify-center !text-sm !py-2.5 !bg-slate-700/50"
               >

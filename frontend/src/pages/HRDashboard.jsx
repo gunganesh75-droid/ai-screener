@@ -148,24 +148,28 @@ export default function HRDashboard() {
         ) : (
           <div className="space-y-3">
             {jobs.map(job => (
-              <div key={job._id} className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-slate-700/40 hover:border-slate-600/60 transition-all">
-                <div className="w-10 h-10 rounded-xl bg-primary-600/15 border border-primary-500/20 flex items-center justify-center flex-shrink-0">
-                  <Briefcase size={16} className="text-primary-400" />
+              <div key={job._id} className="p-4 bg-slate-800/40 rounded-xl border border-slate-700/40 hover:border-slate-600/60 transition-all">
+                {/* Top: icon + info */}
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary-600/15 border border-primary-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Briefcase size={16} className="text-primary-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold break-words">{job.title}</p>
+                    <p className="text-slate-500 text-sm truncate">{job.company} · {job.location}</p>
+                    <p className="text-slate-600 text-xs mt-0.5">{job.salary} · Posted {new Date(job.createdAt).toLocaleDateString()}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold truncate">{job.title}</p>
-                  <p className="text-slate-500 text-sm">{job.company} · {job.location} · {job.salary}</p>
-                  <p className="text-slate-600 text-xs mt-0.5">Posted {new Date(job.createdAt).toLocaleDateString()}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Link to={`/hr/jobs/${job._id}/applicants`} className="btn-success !py-1.5 !px-3 !text-xs">
-                    <Eye size={13} /> Applicants
+                {/* Bottom: action buttons full-width on mobile */}
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-700/40 flex-wrap">
+                  <Link to={`/hr/jobs/${job._id}/applicants`} className="btn-success !py-1.5 !px-3 !text-xs flex items-center gap-1">
+                    <Eye size={13} /> View Applicants
                   </Link>
-                  <Link to={`/hr/jobs/edit/${job._id}`} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all">
-                    <Edit size={15} />
+                  <Link to={`/hr/jobs/edit/${job._id}`} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs font-medium transition-all">
+                    <Edit size={13} /> Edit
                   </Link>
-                  <button onClick={() => handleDelete(job._id)} className="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-900/20 transition-all">
-                    <Trash2 size={15} />
+                  <button onClick={() => handleDelete(job._id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium transition-all ml-auto">
+                    <Trash2 size={13} /> Delete
                   </button>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { applicationsAPI, jobsAPI } from '../services/api'
 import { toast } from 'react-hot-toast'
 import StatusBadge from '../components/StatusBadge'
 import ScoreRing from '../components/ScoreRing'
-import { ArrowLeft, Loader2, Users, Eye, CheckCircle, XCircle, Clock, UploadCloud, X, Plus } from 'lucide-react'
+import { ArrowLeft, Loader2, Users, Eye, CheckCircle, XCircle, Clock, UploadCloud, X } from 'lucide-react'
 
 export default function ApplicantsPage() {
   const { jobId } = useParams()
@@ -67,14 +67,11 @@ export default function ApplicantsPage() {
 
     try {
       const { data } = await applicationsAPI.screenDirect(formData)
-      // Append the new application, and sort it by AI Score descending
       setApplications(prev => {
         const updated = [data.application, ...prev]
         return updated.sort((a, b) => b.aiScore - a.aiScore)
       })
       toast.success('Resume uploaded and screened by Gemini AI successfully!')
-      
-      // Reset form & close modal
       setCName('')
       setCEmail('')
       setFile(null)
@@ -93,20 +90,22 @@ export default function ApplicantsPage() {
 
   return (
     <div className="animate-fade-in relative">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <Link to="/hr/dashboard" className="inline-flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors">
           <ArrowLeft size={14} /> Back to Dashboard
         </Link>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="btn-primary !py-2 !px-4 !text-sm flex items-center gap-2 self-start sm:self-auto shadow-lg shadow-primary-900/40"
+          className="btn-primary !py-2 !px-4 !text-sm flex items-center gap-2 w-full sm:w-auto justify-center shadow-lg shadow-primary-900/40"
         >
           <UploadCloud size={16} /> Upload & Screen Resume
         </button>
       </div>
 
+      {/* Job title card */}
       <div className="card mb-6 bg-gradient-to-r from-primary-900/20 to-violet-900/10 border-primary-700/30">
-        <h1 className="text-xl font-bold text-white mb-1">Applicants for: {job?.title}</h1>
+        <h1 className="text-lg sm:text-xl font-bold text-white mb-1 break-words">Applicants for: {job?.title}</h1>
         <p className="text-slate-400 text-sm">{job?.company} · {applications.length} total candidates · Ranked by AI score</p>
       </div>
 
@@ -125,11 +124,11 @@ export default function ApplicantsPage() {
         ))}
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      {/* Filter tabs — scrollable on mobile */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-5 no-scrollbar">
         {statuses.map(s => (
           <button key={s} onClick={() => setFilter(s)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${filter === s ? 'bg-primary-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
+            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter === s ? 'bg-primary-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
             {s}
           </button>
         ))}
@@ -145,76 +144,87 @@ export default function ApplicantsPage() {
         <div className="space-y-3">
           {visible.map((app, idx) => (
             <div key={app._id} className="card hover:border-slate-600/60 transition-all !p-4">
-              <div className="flex items-center gap-4">
-                <div className="text-slate-600 text-xs font-bold w-6 text-center">#{idx + 1}</div>
-                <ScoreRing score={app.aiScore} size={64} />
+              {/* Top row: rank + score + info */}
+              <div className="flex items-start gap-3">
+                <div className="text-slate-600 text-xs font-bold w-5 text-center pt-1 flex-shrink-0">#{idx + 1}</div>
+                <ScoreRing score={app.aiScore} size={56} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold">{app.candidateId?.name || 'Candidate'}</p>
-                  <p className="text-slate-500 text-sm">{app.candidateId?.email}</p>
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <p className="text-white font-semibold text-sm">{app.candidateId?.name || 'Candidate'}</p>
+                    <StatusBadge status={app.status} />
+                  </div>
+                  <p className="text-slate-500 text-xs truncate">{app.candidateId?.email}</p>
                   <p className="text-slate-600 text-xs mt-0.5">Applied {new Date(app.createdAt).toLocaleDateString()}</p>
                   {app.matchedSkills?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {app.matchedSkills.slice(0, 4).map(s => (
+                      {app.matchedSkills.slice(0, 3).map(s => (
                         <span key={s} className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-md">{s}</span>
                       ))}
+                      {app.matchedSkills.length > 3 && (
+                        <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded-md">+{app.matchedSkills.length - 3}</span>
+                      )}
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <StatusBadge status={app.status} />
-                  <div className="flex gap-1.5">
-                    <button onClick={() => handleViewDetails(app)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-all" title="View Details">
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      disabled={updating === app._id}
-                      onClick={() => updateStatus(app._id, 'Shortlisted')}
-                      className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-900/30 transition-all" title="Shortlist"
-                    >
-                      <CheckCircle size={14} />
-                    </button>
-                    <button
-                      disabled={updating === app._id}
-                      onClick={() => updateStatus(app._id, 'Rejected')}
-                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-900/30 transition-all" title="Reject"
-                    >
-                      <XCircle size={14} />
-                    </button>
-                    <button
-                      disabled={updating === app._id}
-                      onClick={() => updateStatus(app._id, 'Review')}
-                      className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-900/30 transition-all" title="Mark Review"
-                    >
-                      <Clock size={14} />
-                    </button>
-                  </div>
-                </div>
+              </div>
+
+              {/* Bottom action row — full width on mobile */}
+              <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-slate-800/60">
+                <button
+                  onClick={() => handleViewDetails(app)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs font-medium transition-all"
+                  title="View Details"
+                >
+                  <Eye size={13} /> View
+                </button>
+                <button
+                  disabled={updating === app._id}
+                  onClick={() => updateStatus(app._id, 'Shortlisted')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-medium transition-all"
+                  title="Shortlist"
+                >
+                  <CheckCircle size={13} /> Shortlist
+                </button>
+                <button
+                  disabled={updating === app._id}
+                  onClick={() => updateStatus(app._id, 'Review')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-medium transition-all"
+                  title="Mark Review"
+                >
+                  <Clock size={13} /> Review
+                </button>
+                <button
+                  disabled={updating === app._id}
+                  onClick={() => updateStatus(app._id, 'Rejected')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium transition-all"
+                  title="Reject"
+                >
+                  <XCircle size={13} /> Reject
+                </button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Custom Upload & Screen Resume Modal */}
+      {/* Upload & Screen Resume Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="w-full sm:max-w-lg bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => {
-                if (!screening) setShowUploadModal(false)
-              }}
+              onClick={() => { if (!screening) setShowUploadModal(false) }}
               className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
               disabled={screening}
             >
               <X size={20} />
             </button>
 
-            <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-1 flex items-center gap-2">
               <UploadCloud className="text-primary-500" />
               Upload & Screen Resume
             </h2>
-            <p className="text-slate-400 text-sm mb-6">
-              Upload a local candidate's PDF resume to instantly run Gemini AI screening and match analysis.
+            <p className="text-slate-400 text-sm mb-5">
+              Upload a candidate's PDF resume to run instant Gemini AI screening and match analysis.
             </p>
 
             <form onSubmit={handleScreenDirect} className="space-y-4">
@@ -227,7 +237,7 @@ export default function ApplicantsPage() {
                   value={cName}
                   onChange={(e) => setCName(e.target.value)}
                   disabled={screening}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors text-sm"
                 />
               </div>
 
@@ -240,13 +250,13 @@ export default function ApplicantsPage() {
                   value={cEmail}
                   onChange={(e) => setCEmail(e.target.value)}
                   disabled={screening}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors text-sm"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Resume File (PDF only)</label>
-                <div className="border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer relative bg-slate-800/30 transition-all">
+                <div className="border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-2xl p-5 text-center cursor-pointer relative bg-slate-800/30 transition-all">
                   <input
                     type="file"
                     accept=".pdf"
@@ -255,32 +265,32 @@ export default function ApplicantsPage() {
                     onChange={(e) => setFile(e.target.files[0])}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                  <UploadCloud size={32} className="mx-auto text-slate-500 mb-2" />
+                  <UploadCloud size={28} className="mx-auto text-slate-500 mb-2" />
                   <p className="text-slate-300 font-semibold text-sm">
-                    {file ? file.name : 'Click or Drag PDF file here'}
+                    {file ? file.name : 'Tap to select PDF file'}
                   </p>
                   <p className="text-slate-500 text-xs mt-1">Maximum file size: 5MB</p>
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end pt-4 border-t border-slate-800">
+              <div className="flex gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
                   disabled={screening}
-                  className="btn-secondary !py-2 !px-4 !text-sm"
+                  className="btn-secondary !py-2.5 !px-4 !text-sm flex-1"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={screening}
-                  className="btn-primary !py-2 !px-5 !text-sm flex items-center gap-2"
+                  className="btn-primary !py-2.5 !px-5 !text-sm flex items-center justify-center gap-2 flex-1"
                 >
                   {screening ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Screening with AI...
+                      Screening...
                     </>
                   ) : (
                     'Screen Resume'
