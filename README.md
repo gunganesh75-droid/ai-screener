@@ -6,14 +6,11 @@ A production-ready, full-stack AI-powered recruitment platform built with the ME
 
 ## ✨ Features
 
-- **OTP Email Verification** — Secure signup/login via 6-digit OTP (Gmail SMTP)
 - **JWT Authentication** — Role-based access (Candidate / HR)
 - **AI Resume Screening** — Google Gemini parses and matches resumes to job descriptions
 - **Auto-Ranking** — Candidates sorted by AI match score (0–100%)
 - **Auto-Filtering** — Score ≥70% → Shortlisted · 50–69% → Review · <50% → Rejected
-- **Forgot/Reset Password** — OTP-based secure password reset
-- **PDF Upload** — Multer + pdf-parse resume extraction
-- **Email Notifications** — Rich HTML emails for all events
+- **PDF Upload** — Multer resume extraction and parsing
 - **Dark UI** — Modern Tailwind CSS design with animations
 
 ---
@@ -34,8 +31,7 @@ Resume_SCreening/
 
 - Node.js ≥ 18
 - MongoDB (local or MongoDB Atlas)
-- Gmail account with App Password
-- Google Gemini API key ([get it here](https://makersuite.google.com/app/apikey))
+- Google Gemini API key ([get it here](https://aistudio.google.com/app/apikey))
 
 ---
 
@@ -50,15 +46,12 @@ Edit `backend/.env`:
 
 ```env
 PORT=5000
+NODE_ENV=development
 MONGO_URI=mongodb://localhost:27017/resume-screener
-JWT_SECRET=your_super_secret_jwt_key_here
+JWT_SECRET=supersecretjwtkey123456!@#
 GEMINI_API_KEY=your_gemini_api_key_here
-EMAIL_USER=your-gmail@gmail.com
-EMAIL_PASS=your-gmail-app-password
 CLIENT_URL=http://localhost:5173
 ```
-
-> **Gmail App Password:** Go to Google Account → Security → 2-Step Verification → App Passwords → Generate for "Mail".
 
 Start the backend:
 
@@ -101,13 +94,8 @@ Frontend runs at: `http://localhost:5173`
 | POST | `/api/auth/register` | Register with OTP |
 | POST | `/api/auth/verify-otp` | Verify OTP & activate account |
 | POST | `/api/auth/resend-otp` | Resend OTP |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/forgot-password` | Send reset OTP |
-| POST | `/api/auth/verify-reset-otp` | Verify reset OTP |
-| POST | `/api/auth/reset-password` | Reset password |
-
-### Jobs
-| Method | Route | Description |
+| POST | `/api/auth/login` | Login |email & password |
+| POST | `/api/auth/login` | Login
 |--------|-------|-------------|
 | GET | `/api/jobs` | Get all jobs (public) |
 | GET | `/api/jobs/:id` | Get job details (public) |
