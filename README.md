@@ -91,12 +91,8 @@ Frontend runs at: `http://localhost:5173`
 ### Auth
 | Method | Route | Description |
 |--------|-------|-------------|
-| POST | `/api/auth/register` | Register with OTP |
-| POST | `/api/auth/verify-otp` | Verify OTP & activate account |
-| POST | `/api/auth/resend-otp` | Resend OTP |
-| POST | `/api/auth/login` | Login |email & password |
-| POST | `/api/auth/login` | Login
-|--------|-------|-------------|
+| POST | `/api/auth/register` | Register with email & password |
+| POST | `/api/auth/login` | Login with email & password |
 | GET | `/api/jobs` | Get all jobs (public) |
 | GET | `/api/jobs/:id` | Get job details (public) |
 | POST | `/api/jobs` | Create job (HR only) |
@@ -142,7 +138,7 @@ The Gemini AI prompt compares the resume against the job description and returns
 
 - Helmet.js HTTP headers
 - CORS restricted to frontend origin
-- Rate limiting on all auth/OTP endpoints
+- Rate limiting on all auth endpoints
 - JWT token authentication
 - bcrypt password hashing
 - PDF-only upload validation (max 5MB)
@@ -158,6 +154,5 @@ The Gemini AI prompt compares the resume against the job description and returns
 | Database | MongoDB, Mongoose |
 | AI | Google Gemini 1.5 Flash |
 | Auth | JWT, bcryptjs |
-| Email | Nodemailer + Gmail SMTP |
-| File Upload | Multer, pdf-parse |
+| File Upload | Multer |
 | Security | Helmet, CORS, express-rate-limit |
