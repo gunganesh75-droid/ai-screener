@@ -10,17 +10,10 @@ export default function GoogleSignIn({ mode = 'signin' }) {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  // Steps state: 'init' | 'mock_picker' | 'role_select'
+  // Steps state: 'init' | 'role_select'
   const [step, setStep] = useState('init')
   const [pendingAuth, setPendingAuth] = useState(null) // { credential, email, name }
   const [selectedRole, setSelectedRole] = useState('candidate')
-
-  // Pre-configured mock Google accounts for simulated login
-  const mockAccounts = [
-    { name: 'Alex Rivera', email: 'arivera@gmail.com', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=face' },
-    { name: 'Marcus Chen', email: 'mchen@gmail.com', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face' },
-    { name: 'Sarah Jenkins', email: 'sjenkins.hr@gmail.com', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face' },
-  ]
 
   // Complete the login/signup process with the role
   const completeAuthWithRole = async (roleValue) => {
@@ -101,10 +94,10 @@ export default function GoogleSignIn({ mode = 'signin' }) {
         window.google.accounts.id.prompt()
       } catch (err) {
         console.error('Google official initialization failed:', err)
-        setStep('mock_picker')
+        toast.error('Google Sign-In is not configured. Please try again later.')
       }
     } else {
-      setStep('mock_picker')
+      toast.error('Google Sign-In is not available. Please ensure Google Client ID is configured.')
     }
   }
 
@@ -154,48 +147,7 @@ export default function GoogleSignIn({ mode = 'signin' }) {
         </button>
       )}
 
-      {/* STEP 2: INLINE SIMULATED GOOGLE ACCOUNT PICKER */}
-      {step === 'mock_picker' && (
-        <div className="space-y-4 animate-fade-in text-left">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-            <button
-              onClick={() => setStep('init')}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft size={16} />
-            </button>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
-                <Chrome size={16} className="text-primary-400" />
-                Choose Google account
-              </h2>
-            </div>
-          </div>
-
-          {/* Account List */}
-          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-            {mockAccounts.map((account) => (
-              <button
-                key={account.email}
-                onClick={() => handleSelectMock(account)}
-                className="w-full flex items-center gap-3 p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700/50 hover:border-slate-600 rounded-xl transition-all text-left"
-              >
-                <img
-                  src={account.avatar}
-                  alt={account.name}
-                  className="w-8 h-8 rounded-full border border-slate-700 object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-semibold text-xs truncate">{account.name}</p>
-                  <p className="text-slate-400 text-[10px] truncate">{account.email}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: INLINE ROLE SELECTION */}
+      {/* STEP 2: INLINE ROLE SELECTION */}
       {step === 'role_select' && (
         <div className="space-y-5 animate-fade-in text-left">
           <div className="text-center mb-1">

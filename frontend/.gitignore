@@ -1,4 +1,9 @@
 node_modules/
-.env
+.envcd frontend
+rm -r dist
+npm run build
+git add .
+git commit -m "Add dist folder to deployment"
+git push origin master
 .DS_Store
 *.log
