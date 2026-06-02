@@ -85,6 +85,12 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
       const fileSize = stat.size
       const range = req.headers.range
 
+      // Always set PDF and CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', 'inline')
+
       if (range) {
         const parts = range.replace(/bytes=/, '').split('-')
         const start = parseInt(parts[0], 10)
@@ -99,7 +105,6 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
         res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`)
         res.setHeader('Accept-Ranges', 'bytes')
         res.setHeader('Content-Length', chunkSize)
-        res.setHeader('Content-Type', 'application/pdf')
         const stream = fs.createReadStream(filePath, { start, end })
         stream.on('open', () => stream.pipe(res))
         stream.on('error', (streamErr) => {
@@ -109,7 +114,6 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
         return
       }
 
-      res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Length', fileSize)
       res.setHeader('Accept-Ranges', 'bytes')
       const fileStream = fs.createReadStream(filePath)
@@ -129,7 +133,10 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
       const remoteFile = storage.file(remoteFilePath)
       const [exists] = await remoteFile.exists()
       if (exists) {
+        res.setHeader('Access-Control-Allow-Origin', '*')
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
         res.setHeader('Content-Type', 'application/pdf')
+        res.setHeader('Content-Disposition', 'inline')
         res.setHeader('Accept-Ranges', 'bytes')
         const remoteStream = remoteFile.createReadStream()
         remoteStream.on('error', (streamErr) => {
@@ -140,9 +147,13 @@ app.get(['/uploads/:file(*)', '/api/uploads/:file(*)'], async (req, res) => {
       }
     }
 
+    res.removeHeader('Content-Disposition');
+    res.setHeader('Content-Type', 'text/plain');
     return res.status(404).send('File not found')
   } catch (err) {
     console.error('Uploads GET handler error:', err)
+    res.removeHeader('Content-Disposition');
+    res.setHeader('Content-Type', 'text/plain');
     return res.status(500).send('Server error')
   }
 })
@@ -178,12 +189,17 @@ app.get('/api/health', (req, res) => {
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
+  res.removeHeader('Content-Disposition');
+  res.setHeader('Content-Type', 'application/json');
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
 });
 
 // ─── Global Error Handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err.stack || err.message);
+
+  res.removeHeader('Content-Disposition');
+  res.setHeader('Content-Type', 'application/json');
 
   // Handle Multer errors
   if (err.code === 'LIMIT_FILE_SIZE') {

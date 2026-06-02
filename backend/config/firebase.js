@@ -200,8 +200,12 @@ const decodeJwtWithoutVerification = (token) => {
 const createMockAuth = () => {
   return {
     verifyIdToken: async (token) => {
-      if (token.startsWith('mock_google_')) {
-        const email = 'candidate@gmail.com';
+      if (token && typeof token === 'string' && token.startsWith('mock_google_')) {
+        let email = 'candidate@gmail.com';
+        if (token.includes('_email_')) {
+          const parts = token.split('_email_');
+          if (parts[1]) email = parts[1];
+        }
         return {
           uid: 'mock_uid_' + email.replace(/[^a-zA-Z0-9]/g, ''),
           email: email,
@@ -228,7 +232,34 @@ export let storage;
 
 if (app) {
   db = admin.firestore();
-  auth = admin.auth();
+  
+  const realAuth = admin.auth();
+  auth = new Proxy(realAuth, {
+    get(target, prop, receiver) {
+      if (prop === 'verifyIdToken') {
+        return async (token, ...args) => {
+          if (token && typeof token === 'string' && token.startsWith('mock_google_')) {
+            console.log('🔮 Intercepted and verifying mock Google token:', token);
+            let email = 'candidate@gmail.com';
+            if (token.includes('_email_')) {
+              const parts = token.split('_email_');
+              if (parts[1]) email = parts[1];
+            }
+            return {
+              uid: 'mock_uid_' + email.replace(/[^a-zA-Z0-9]/g, ''),
+              email: email,
+              name: 'Google User',
+              email_verified: true
+            };
+          }
+          return target.verifyIdToken(token, ...args);
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    }
+  });
+
   try {
     storage = admin.storage().bucket();
     console.log(`✅ Firebase Storage initialized${storageBucketName ? ` using bucket ${storageBucketName}` : ''}.`);

@@ -154,7 +154,7 @@ export default function GoogleSignIn({ mode = 'signin' }) {
       // Dev Fallback trigger
       const mockEmail = mode === 'signup' ? `new_user_${Date.now()}@gmail.com` : 'candidate@gmail.com'
       const mockName = mode === 'signup' ? 'New Candidate' : 'Google User'
-      const mockCredential = `mock_google_${Date.now()}`
+      const mockCredential = `mock_google_${Date.now()}_email_${mockEmail}`
       
       await handleAuthResponse({
         credential: mockCredential,
