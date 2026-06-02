@@ -3,6 +3,8 @@ import { applicationsAPI } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import StatusBadge from '../components/StatusBadge'
 import ScoreRing from '../components/ScoreRing'
+import { resolveResumeUrl, downloadResumeFile } from '../utils/resumeUrl'
+import { toast } from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { Briefcase, Loader2, ChevronDown, ChevronUp, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 
@@ -15,6 +17,21 @@ function SkillPill({ label, type }) {
 
 function ApplicationRow({ app }) {
   const [expanded, setExpanded] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!app.resumeUrl) return
+    setDownloading(true)
+    try {
+      await downloadResumeFile(app.resumeUrl)
+    } catch (err) {
+      console.error('Download Resume Error:', err)
+      toast.error(err.message || 'Failed to download resume')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className="bg-slate-800/30 rounded-xl border border-slate-700/40 hover:border-slate-600/50 transition-all overflow-hidden">
       <div className="flex items-center gap-4 p-4 cursor-pointer" onClick={() => setExpanded(!expanded)}>
@@ -65,20 +82,21 @@ function ApplicationRow({ app }) {
           )}
           <div className="flex gap-2 flex-wrap">
             <a
-              href={app.resumeUrl ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`) : '#'}
+              href={resolveResumeUrl(app.resumeUrl)}
               target="_blank"
               rel="noreferrer"
               className="btn-secondary !py-2 !px-4 !text-sm inline-flex"
             >
               View Resume PDF
             </a>
-            <a
-              href={app.resumeUrl ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`) : '#'}
-              download
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
               className="btn-secondary !py-2 !px-4 !text-sm inline-flex !bg-slate-700/50"
             >
-              Download PDF
-            </a>
+              {downloading ? 'Downloading...' : 'Download PDF'}
+            </button>
           </div>
         </div>
       )}

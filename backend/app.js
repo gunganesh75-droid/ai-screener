@@ -54,7 +54,7 @@ app.use(
 
 // ─── Serve uploaded files BEFORE Helmet so no CSP blocks PDF viewing ─────────
 // Sets explicit PDF-friendly headers so the browser opens files correctly.
-app.use('/uploads', (req, res, next) => {
+app.use(['/uploads', '/api/uploads'], (req, res, next) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
   // Allow PDF rendering in browser — do NOT set X-Frame-Options or object-src

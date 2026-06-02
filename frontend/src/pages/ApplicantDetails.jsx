@@ -4,6 +4,7 @@ import { applicationsAPI } from '../services/api'
 import { toast } from 'react-hot-toast'
 import StatusBadge from '../components/StatusBadge'
 import ScoreRing from '../components/ScoreRing'
+import { resolveResumeUrl, downloadResumeFile } from '../utils/resumeUrl'
 import { ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Download, User, Brain, Tag, ThumbsUp, ThumbsDown, FileText } from 'lucide-react'
 
 export default function ApplicantDetails() {
@@ -12,6 +13,7 @@ export default function ApplicantDetails() {
   const [app, setApp] = useState(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`app_${id}`)
@@ -38,9 +40,20 @@ export default function ApplicantDetails() {
   if (!app) return null
 
   const scoreTextColor = app.aiScore >= 70 ? 'text-emerald-400' : app.aiScore >= 50 ? 'text-amber-400' : 'text-red-400'
-  const resumeHref = app.resumeUrl
-    ? (app.resumeUrl.startsWith('http') ? app.resumeUrl : `${(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')}${app.resumeUrl}`)
-    : '#'
+  const resumeHref = resolveResumeUrl(app.resumeUrl)
+
+  const handleDownloadResume = async () => {
+    if (!app.resumeUrl) return
+    setDownloading(true)
+    try {
+      await downloadResumeFile(app.resumeUrl)
+      toast.success('Resume download started')
+    } catch (err) {
+      toast.error(err.message || 'Failed to download resume')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto">
@@ -195,13 +208,14 @@ export default function ApplicantDetails() {
               >
                 <FileText size={14} /> View PDF
               </a>
-              <a
-                href={resumeHref}
-                download
+              <button
+                type="button"
+                onClick={handleDownloadResume}
+                disabled={downloading}
                 className="btn-secondary w-full justify-center !text-sm !py-2.5 !bg-slate-700/50"
               >
-                <Download size={14} /> Download PDF
-              </a>
+                <Download size={14} /> {downloading ? 'Downloading...' : 'Download PDF'}
+              </button>
             </div>
           </div>
         </div>
