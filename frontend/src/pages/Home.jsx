@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Zap, Brain, Shield, TrendingUp, CheckCircle, ArrowRight, Users, Briefcase, Star } from 'lucide-react'
 
 const features = [
-  { icon: Brain, title: 'AI-Powered Screening', desc: 'Gemini AI analyzes every resume against job requirements and calculates precise match scores instantly.' },
+  { icon: Brain, title: 'AI-Powered Screening', desc: 'AI analyzes every resume against job requirements and calculates precise match scores instantly.' },
   { icon: Zap, title: 'Instant Ranking', desc: 'Candidates are automatically sorted by AI score — from most to least suitable — saving hours of manual review.' },
   { icon: Shield, title: 'Secure & Private', desc: 'JWT authentication, bcrypt hashing, and rate limiting keep your data safe.' },
   { icon: TrendingUp, title: 'Smart Filtering', desc: 'Scores ≥70% are shortlisted, 50–69% flagged for review, and <50% auto-rejected. Fully configurable.' },
@@ -18,7 +18,7 @@ const stats = [
 const steps = [
   { step: '01', title: 'Post a Job', desc: 'HR creates a job posting with description and required skills.' },
   { step: '02', title: 'Candidates Apply', desc: 'Candidates upload their PDF resume and apply for positions.' },
-  { step: '03', title: 'AI Screens', desc: 'Gemini AI parses the resume and computes a match score against the job.' },
+  { step: '03', title: 'AI Screens', desc: 'AI parses the resume and computes a match score against the job.' },
   { step: '04', title: 'Hire Smarter', desc: 'HR reviews ranked candidates and makes data-driven hiring decisions.' },
 ]
 
@@ -30,14 +30,14 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-36 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-900/40 border border-primary-700/40 text-primary-300 text-sm font-medium mb-8 animate-fade-in">
             <Zap size={14} className="text-primary-400" />
-            Powered by Google Gemini AI
+            Enhanced by Artificial Intelligence
           </div>
           <h1 className="text-5xl md:text-7xl font-black text-white leading-tight tracking-tight mb-6 animate-slide-up">
             Hire Smarter with<br />
             <span className="gradient-text">AI Resume Screening</span>
           </h1>
           <p className="text-slate-400 text-xl max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-in">
-            Stop reviewing irrelevant resumes manually. Our Gemini-powered platform automatically scores, ranks, and filters candidates — so you only interview the best.
+            Automatically score, rank, and shortlist candidates using advanced AI, helping your team hire faster and more accurately.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
             <Link to="/register" className="btn-primary !text-base !px-8 !py-4 shadow-2xl shadow-primary-900/50">
