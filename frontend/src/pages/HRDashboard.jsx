@@ -45,10 +45,11 @@ export default function HRDashboard() {
 
         appsResults.forEach(res => {
           const apps = res.data.applications || []
-          total += apps.length
-          suited += apps.filter(a => a.aiScore >= 70).length
-          review += apps.filter(a => a.aiScore >= 50 && a.aiScore < 70).length
-          rejected += apps.filter(a => a.status === 'Rejected' || a.aiScore < 50).length
+          const activeApps = apps.filter(a => a.status !== 'Rejected')
+          total += activeApps.length
+          suited += apps.filter(a => a.status === 'Shortlisted' || a.aiScore >= 70).length
+          review += apps.filter(a => a.status === 'Review' || (a.aiScore >= 50 && a.aiScore < 70 && a.status !== 'Rejected')).length
+          rejected += apps.filter(a => a.status === 'Rejected').length
         })
 
         setStats({

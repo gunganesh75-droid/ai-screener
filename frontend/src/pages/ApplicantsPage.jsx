@@ -84,7 +84,9 @@ export default function ApplicantsPage() {
   }
 
   const statuses = ['All', 'Shortlisted', 'Review', 'Rejected', 'Applied']
-  const visible = filter === 'All' ? applications : applications.filter(a => a.status === filter)
+  const visible = filter === 'All'
+    ? applications.filter(a => a.status !== 'Rejected')
+    : applications.filter(a => a.status === filter)
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 size={32} className="text-primary-500 animate-spin" /></div>
 
@@ -106,7 +108,7 @@ export default function ApplicantsPage() {
       {/* Job title card */}
       <div className="card mb-6 bg-gradient-to-r from-primary-900/20 to-violet-900/10 border-primary-700/30">
         <h1 className="text-lg sm:text-xl font-bold text-white mb-1 break-words">Applicants for: {job?.title}</h1>
-        <p className="text-slate-400 text-sm">{job?.company} · {applications.length} total candidates · Ranked by AI score</p>
+        <p className="text-slate-400 text-sm">{job?.company} · {applications.filter(a => a.status !== 'Rejected').length} active candidates · Ranked by AI score</p>
       </div>
 
       {/* Stats row */}
@@ -138,7 +140,11 @@ export default function ApplicantsPage() {
         <div className="card text-center py-14">
           <Users size={44} className="text-slate-700 mx-auto mb-3" />
           <p className="text-white font-semibold mb-1">No applicants found</p>
-          <p className="text-slate-500 text-sm">{filter !== 'All' ? 'No candidates in this category yet.' : 'No applications received yet.'}</p>
+          <p className="text-slate-500 text-sm">
+            {filter === 'All' ? 'No active applications received yet.' :
+             filter === 'Rejected' ? 'No rejected candidates.' :
+             `No candidates with status "${filter}" yet.`}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -168,11 +174,11 @@ export default function ApplicantsPage() {
                 </div>
               </div>
 
-              {/* Bottom action row — full width on mobile */}
-              <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-slate-800/60">
+              {/* Bottom action row — wrap buttons on mobile */}
+              <div className="flex flex-wrap items-center justify-end gap-2 mt-3 pt-3 border-t border-slate-800/60">
                 <button
                   onClick={() => handleViewDetails(app)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs font-medium transition-all"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 text-xs font-medium transition-all"
                   title="View Details"
                 >
                   <Eye size={13} /> View
@@ -180,7 +186,7 @@ export default function ApplicantsPage() {
                 <button
                   disabled={updating === app._id}
                   onClick={() => updateStatus(app._id, 'Shortlisted')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-medium transition-all"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-medium transition-all"
                   title="Shortlist"
                 >
                   <CheckCircle size={13} /> Shortlist
@@ -188,7 +194,7 @@ export default function ApplicantsPage() {
                 <button
                   disabled={updating === app._id}
                   onClick={() => updateStatus(app._id, 'Review')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-medium transition-all"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-medium transition-all"
                   title="Mark Review"
                 >
                   <Clock size={13} /> Review
@@ -196,7 +202,7 @@ export default function ApplicantsPage() {
                 <button
                   disabled={updating === app._id}
                   onClick={() => updateStatus(app._id, 'Rejected')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium transition-all"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-red-400 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium transition-all"
                   title="Reject"
                 >
                   <XCircle size={13} /> Reject
