@@ -9,11 +9,11 @@ export default function DashboardLayout() {
   const { user } = useAuth()
 
   return (
-    <div className="min-h-screen bg-slate-950 flex">
+    <div className="h-screen bg-slate-950 flex overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md flex items-center px-4 gap-4 sticky top-0 z-20">
+        <header className="h-14 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md flex items-center px-4 gap-4 sticky top-0 z-20 flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
             className="md:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
@@ -31,7 +31,7 @@ export default function DashboardLayout() {
           </div>
         </header>
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>
