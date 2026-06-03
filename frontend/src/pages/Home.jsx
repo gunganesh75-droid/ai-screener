@@ -116,7 +116,7 @@ export default function Home() {
                 Automatic filtering with<br /><span className="gradient-text">AI match scores</span>
               </h2>
               <p className="text-slate-400 leading-relaxed mb-8">
-                Every resume is parsed and compared against the job description using Google Gemini. Candidates receive an instant match score, and are automatically filtered into categories.
+                Every resume is parsed and compared against the job description using advanced AI. Candidates receive an instant match score, and are automatically filtered into categories.
               </p>
               <div className="space-y-4">
                 {[

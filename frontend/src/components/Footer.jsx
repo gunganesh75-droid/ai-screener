@@ -14,7 +14,7 @@ export default function Footer() {
               <span className="text-lg font-bold text-white">AI<span className="text-primary-400">Screener</span></span>
             </Link>
             <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-              AI-powered recruitment platform that automatically ranks candidates using Gemini AI. Reduce HR workload and hire smarter.
+              AI-powered recruitment platform that automatically ranks and screens candidates. Reduce HR workload and hire smarter.
             </p>
           </div>
           <div>

@@ -71,7 +71,7 @@ export default function ApplyJob() {
         <div>
           <p className="text-white font-medium text-sm">AI-powered analysis included</p>
           <p className="text-slate-500 text-xs leading-relaxed mt-0.5">
-            After submission, Gemini AI will parse your resume, calculate a match score, and instantly rank your profile among all applicants.
+            After submission, AI will parse your resume, calculate a match score, and instantly rank your profile among all applicants.
           </p>
         </div>
       </div>

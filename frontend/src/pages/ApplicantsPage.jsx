@@ -71,7 +71,7 @@ export default function ApplicantsPage() {
         const updated = [data.application, ...prev]
         return updated.sort((a, b) => b.aiScore - a.aiScore)
       })
-      toast.success('Resume uploaded and screened by Gemini AI successfully!')
+      toast.success('Resume uploaded and screened by AI successfully!')
       setCName('')
       setCEmail('')
       setFile(null)
@@ -230,7 +230,7 @@ export default function ApplicantsPage() {
               Upload & Screen Resume
             </h2>
             <p className="text-slate-400 text-sm mb-5">
-              Upload a candidate's PDF resume to run instant Gemini AI screening and match analysis.
+              Upload a candidate's PDF resume to run instant AI screening and match analysis.
             </p>
 
             <form onSubmit={handleScreenDirect} className="space-y-4">
