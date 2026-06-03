@@ -1,4 +1,4 @@
-import { Zap, Github, Twitter, Linkedin } from 'lucide-react'
+import { Zap, Github, Linkedin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export default function Footer() {
@@ -41,11 +41,24 @@ export default function Footer() {
         <div className="border-t border-slate-800 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-slate-600 text-xs">&copy; {new Date().getFullYear()} AI Resume Screener. All rights reserved.</p>
           <div className="flex items-center gap-3">
-            {[Github, Twitter, Linkedin].map((Icon, i) => (
-              <a key={i} href="#" className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-slate-800 transition-all">
-                <Icon size={16} />
-              </a>
-            ))}
+            <a
+              href="https://github.com/gunganesh75-droid"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-slate-800 transition-all"
+              title="GitHub"
+            >
+              <Github size={16} />
+            </a>
+            <a
+              href="https://www.linkedin.com/in/ganesh-gunturu-9267b331a"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg text-slate-600 hover:text-white hover:bg-slate-800 transition-all"
+              title="LinkedIn"
+            >
+              <Linkedin size={16} />
+            </a>
           </div>
         </div>
       </div>
